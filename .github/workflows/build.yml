@@ -25,7 +25,9 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon
       - name: Print SHA-1
-        run: keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk | grep -E "SHA1|SHA256" || true
+        run: |
+          AS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)/apksigner
+          $AS verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -i digest || true
       - uses: actions/upload-artifact@v4
         with:
           name: focuschat-apk
