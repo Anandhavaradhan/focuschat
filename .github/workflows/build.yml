@@ -30,3 +30,5 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
       - name: Print SHA-1
         run: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep -E "SHA1|SHA256"
+      - name: Print SHA-1
+        run: keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk | grep -E "SHA1|SHA256" || true
