@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "163709190398-fq053n4i2hj99ltjs9sko5e8vts26skg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.topicpulse.xk9zp",
+            "certificate_hash": "264acb60507d92c87f2b9a990e3be94eaea50cf7"
+          }
+        },
+        {
           "client_id": "163709190398-ghh4oojocmplu6k52lv5k24b4gcfkqnh.apps.googleusercontent.com",
           "client_type": 3
         }
