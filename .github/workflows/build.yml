@@ -12,6 +12,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Use fixed debug key
+        run: |
+          mkdir -p ~/.android
+          cp ci/debug.keystore ~/.android/debug.keystore
       - name: Accept Android licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
@@ -24,10 +28,6 @@ jobs:
           fi
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon
-      - name: Print SHA-1
-        run: |
-          AS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)/apksigner
-          $AS verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -i digest || true
       - uses: actions/upload-artifact@v4
         with:
           name: focuschat-apk
