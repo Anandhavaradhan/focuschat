@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated Google user account profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "displayName"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "Topic-focused discussion channels and direct chats",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "isDirectMessage": { "type": "boolean" },
+        "topic": { "type": "string" },
+        "topicKeywords": { "type": "array" },
+        "guardLevel": { "type": "string", "enum": ["STRICT", "BALANCED", "ADVISORY", "OFF"] },
+        "creatorId": { "type": "string" },
+        "memberIds": { "type": "array" },
+        "lastMessageText": { "type": "string" },
+        "lastMessageTimestamp": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "topic", "guardLevel", "creatorId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Real-time messages verified for topic relevance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "channelId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhotoUrl": { "type": "string" },
+        "content": { "type": "string" },
+        "relevanceScore": { "type": "number" },
+        "relevanceStatus": { "type": "string" },
+        "relevanceExplanation": { "type": "string" },
+        "suggestedRewrite": { "type": "string" },
+        "linkUrl": { "type": "string" },
+        "linkTrustScore": { "type": "number" },
+        "linkSafe": { "type": "boolean" },
+        "fileName": { "type": "string" },
+        "fileType": { "type": "string" },
+        "fileSafetyStatus": { "type": "string" },
+        "fileRelevanceScore": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "channelId", "senderId", "senderName", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document keyed by Google Auth UID"
+    },
+    "/channels/{channelId}": {
+      "schema": "Channel",
+      "description": "Topic channels and direct chats"
+    },
+    "/channels/{channelId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages posted to a topic channel"
+    }
+  }
+}

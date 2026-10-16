@@ -1,0 +1,6 @@
+{
+  "name": "TopicPulse",
+  "description": "Real-time chat & video calling with friends powered by Gemini API to ensure on-topic discussions, deep file analysis, and link safety.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
