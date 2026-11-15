@@ -1,6 +1,13 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -105,6 +112,34 @@ fun ChatDetailScreen(
     val pendingRewrite by viewModel.pendingRewriteSuggestion.collectAsState()
 
     val showAttachmentSheet by viewModel.showAttachmentSheet.collectAsState()
+    val notice by viewModel.notice.collectAsState()
+    val isUploading by viewModel.isUploading.collectAsState()
+    val context = LocalContext.current
+    val uiScope = rememberCoroutineScope()
+
+    // Real file picker for attachments
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            uiScope.launch {
+                val picked = readPickedFile(context, uri)
+                if (picked != null) viewModel.uploadFile(picked.name, picked.mimeType, picked.bytes)
+            }
+        }
+    }
+    val openFile: (com.example.data.model.FileAttachment) -> Unit = { file ->
+        val channelId = activeChannel?.id
+        val fileId = file.storedFileId
+        if (channelId == null || fileId == null) {
+            Toast.makeText(context, "This attachment was only scanned; the file itself was not uploaded.", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "Downloading ${file.fileName}…", Toast.LENGTH_SHORT).show()
+            uiScope.launch {
+                val bytes = try { viewModel.downloadFile(channelId, fileId) } catch (e: Exception) { null }
+                if (bytes == null) Toast.makeText(context, "The file could not be downloaded.", Toast.LENGTH_LONG).show()
+                else openDownloadedFile(context, file.fileName, file.mimeType, bytes)
+            }
+        }
+    }
     val showLinkScannerSheet by viewModel.showLinkScannerSheet.collectAsState()
 
     var showTopicBannerExpanded by remember { mutableStateOf(false) }
@@ -173,7 +208,7 @@ fun ChatDetailScreen(
                 actions = {
                     // Voice Call Button
                     IconButton(
-                        onClick = { viewModel.startVoiceCall() },
+                        onClick = { viewModel.startCall(isVideo = false)?.let { openCallLink(context, it) } },
                         modifier = Modifier.testTag("voice_call_button")
                     ) {
                         Icon(
@@ -184,7 +219,7 @@ fun ChatDetailScreen(
                     }
                     // Video Call Button
                     IconButton(
-                        onClick = { viewModel.startVideoCall() },
+                        onClick = { viewModel.startCall(isVideo = true)?.let { openCallLink(context, it) } },
                         modifier = Modifier.testTag("video_call_button")
                     ) {
                         Icon(
@@ -297,7 +332,9 @@ fun ChatDetailScreen(
                 items(messages, key = { it.id }) { msg ->
                     MessageBubbleItem(
                         message = msg,
-                        onRelevanceClick = { selectedExplanationMessage = msg }
+                        onRelevanceClick = { selectedExplanationMessage = msg },
+                        onOpenFile = openFile,
+                        onJoinCall = { url -> openCallLink(context, url) }
                     )
                 }
             }
@@ -477,33 +514,38 @@ fun ChatDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 UploadOptionCard(
-                    icon = Icons.Default.Code,
-                    title = "Kotlin Source Code (StateBuffer.kt)",
-                    subtitle = "Audits coroutines, memory leaks, and Compose state hoisting.",
-                    onClick = { viewModel.uploadSampleFile("kotlin_code") }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                UploadOptionCard(
                     icon = Icons.Default.Description,
-                    title = "System Architecture Spec (.md)",
-                    subtitle = "Zero-trust tokens, edge AI latency SLA, and TLS rules.",
-                    onClick = { viewModel.uploadSampleFile("tech_spec") }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                UploadOptionCard(
-                    icon = Icons.Default.Image,
-                    title = "UI Wireframe Mockup (PNG)",
-                    subtitle = "Visual design tokens, contrast ratios, and layout fit.",
-                    onClick = { viewModel.uploadSampleFile("image_mockup") }
+                    title = "Choose a file from this phone",
+                    subtitle = "Documents, code, images or PDFs up to 5 MB. Gemini checks it against the chat topic before it is shared.",
+                    onClick = { pickFile.launch(arrayOf("*/*")) }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    if (isUploading) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Uploading") },
+            text = {
+                Column {
+                    Text("Scanning and uploading your file…")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    notice?.let { text ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearNotice() },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { viewModel.clearNotice() }) { Text("OK") } }
+        )
     }
 
     // Modal Sheet: Link Scanner & Topic Match
@@ -688,6 +730,8 @@ fun ChatDetailScreen(
 fun MessageBubbleItem(
     message: Message,
     onRelevanceClick: () -> Unit,
+    onOpenFile: (com.example.data.model.FileAttachment) -> Unit = {},
+    onJoinCall: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isMe = message.isFromMe
@@ -771,6 +815,25 @@ fun MessageBubbleItem(
                     if (message.fileAttachment != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         FileAttachmentCard(file = message.fileAttachment)
+                        if (message.fileAttachment.storedFileId != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedButton(onClick = { onOpenFile(message.fileAttachment) }) {
+                                Text("Open file", color = if (isMe) Color.White else MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+
+                    // Call invitation
+                    if (message.callUrl != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { onJoinCall(message.callUrl) }) {
+                            Icon(
+                                imageVector = if (message.isVideoCall) Icons.Default.Videocam else Icons.Default.Call,
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (message.isVideoCall) "Join video call" else "Join voice call")
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))

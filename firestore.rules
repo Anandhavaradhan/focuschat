@@ -10,7 +10,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // User Profile Document
+    function isMember(channelId) {
+      return isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.memberIds;
+    }
+
+    // User profiles: everyone who has signed in can see each other (to start chats).
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isOwner(userId)
@@ -20,23 +25,44 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Topic Channels
+    // Channels and DMs: only their members can see them.
     match /channels/{channelId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
       allow create: if isAuthenticated()
         && request.resource.data.creatorId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() <= 100
         && request.resource.data.name is string
         && request.resource.data.topic is string;
-      allow update: if isAuthenticated();
+      // Members may only update the "last message" preview.
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.memberIds
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessageText', 'lastMessageTimestamp']);
       allow delete: if isAuthenticated() && resource.data.creatorId == request.auth.uid;
 
-      // Channel Messages
       match /messages/{messageId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated()
+        allow read: if isMember(channelId);
+        allow create: if isMember(channelId)
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.content is string;
-        allow update, delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
+          && request.resource.data.content is string
+          && request.resource.data.content.size() <= 10000;
+        allow update, delete: if isMember(channelId) && resource.data.senderId == request.auth.uid;
+      }
+
+      // Uploaded attachments (base64 chunks, see ChatRepository.uploadFile)
+      match /files/{fileId} {
+        allow read: if isMember(channelId);
+        allow create: if isMember(channelId) && request.resource.data.uploaderId == request.auth.uid;
+        allow delete: if isMember(channelId) && resource.data.uploaderId == request.auth.uid;
+
+        match /chunks/{chunkId} {
+          allow read: if isMember(channelId);
+          allow create: if isMember(channelId)
+            && request.resource.data.uploaderId == request.auth.uid
+            && request.resource.data.data is string
+            && request.resource.data.data.size() <= 700000;
+          allow delete: if isMember(channelId) && resource.data.uploaderId == request.auth.uid;
+        }
       }
     }
   }

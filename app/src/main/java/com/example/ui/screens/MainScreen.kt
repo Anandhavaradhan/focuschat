@@ -28,15 +28,8 @@ fun MainScreen(
     onSignOut: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val callState by viewModel.callState.collectAsState()
     val isInsideChat by viewModel.isInsideChat.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
-
-    // 1. If in a Call (Voice or Video), display the CallScreen
-    if (callState.isInCall) {
-        CallScreen(viewModel = viewModel, modifier = modifier)
-        return
-    }
 
     // 2. If viewing a specific Channel or 1-on-1 Chat, display ChatDetailScreen
     if (isInsideChat) {

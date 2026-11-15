@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,6 +90,7 @@ fun ChatListScreen(
     var selectedListTab by remember { mutableIntStateOf(0) } // 0 = Topic Channels, 1 = Direct Chats
     var searchQuery by remember { mutableStateOf("") }
     val showCreateDialog by viewModel.showCreateChannelDialog.collectAsState()
+    val people by viewModel.people.collectAsState()
     var showProfileDialog by remember { mutableStateOf(false) }
 
     val filteredChannels = channels.filter {
@@ -270,10 +274,10 @@ fun ChatListScreen(
     if (showCreateDialog) {
         CreateChannelDialog(
             isDirectMessage = selectedListTab == 1,
-            friends = viewModel.friendsList,
+            people = people,
             onDismiss = { viewModel.showCreateChannelDialog.value = false },
-            onCreate = { name, topic, keywords, guardLevel, isDm, friendId ->
-                viewModel.createNewChannel(name, topic, keywords, guardLevel, isDm, friendId)
+            onCreate = { name, topic, keywords, guardLevel, isDm, memberIds ->
+                viewModel.createNewChannel(name, topic, keywords, guardLevel, isDm, memberIds)
             }
         )
     }
@@ -387,7 +391,8 @@ fun ChannelListItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (channel.isDirectMessage) {
-                    val other = channel.participants.firstOrNull { it.id != "user_me" }
+                    val myId = com.google.firebase.Firebase.auth.currentUser?.uid
+                    val other = channel.participants.firstOrNull { it.id != myId }
                         ?: channel.participants.first()
                     UserAvatar(user = other, size = 44)
                 } else {
@@ -509,15 +514,24 @@ fun ChannelListItem(
 @Composable
 fun CreateChannelDialog(
     isDirectMessage: Boolean,
-    friends: List<com.example.data.model.User>,
+    people: List<com.example.data.model.User>,
     onDismiss: () -> Unit,
-    onCreate: (name: String, topic: String, keywords: List<String>, guardLevel: GuardLevel, isDm: Boolean, friendId: String?) -> Unit
+    onCreate: (name: String, topic: String, keywords: List<String>, guardLevel: GuardLevel, isDm: Boolean, memberIds: List<String>) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var topic by remember { mutableStateOf("") }
     var keywordsStr by remember { mutableStateOf("") }
     var selectedGuardLevel by remember { mutableStateOf(GuardLevel.BALANCED) }
-    var selectedFriendId by remember { mutableStateOf(friends.firstOrNull()?.id ?: "") }
+    var selectedFriendId by remember { mutableStateOf("") }
+    var selectedMembers by remember { mutableStateOf(setOf<String>()) }
+    var personFilter by remember { mutableStateOf("") }
+
+    val shownPeople = people.filter {
+        personFilter.isBlank() ||
+            it.name.contains(personFilter, ignoreCase = true) ||
+            it.handle.contains(personFilter, ignoreCase = true) ||
+            it.statusMessage.contains(personFilter, ignoreCase = true)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -525,28 +539,11 @@ fun CreateChannelDialog(
             Text(if (isDirectMessage) "Start Topic Direct Chat" else "Create Topic-Focused Channel")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (isDirectMessage) {
-                    Text(text = "Choose Friend:", style = MaterialTheme.typography.labelMedium)
-                    friends.forEach { friend ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    selectedFriendId = friend.id
-                                    name = friend.name
-                                }
-                                .background(if (selectedFriendId == friend.id) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            UserAvatar(user = friend, size = 32)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(friend.name, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                } else {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (!isDirectMessage) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it.lowercase().replace(" ", "-") },
@@ -554,6 +551,56 @@ fun CreateChannelDialog(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+                }
+
+                Text(
+                    text = if (isDirectMessage) "Choose a person:" else "Add people (optional):",
+                    style = MaterialTheme.typography.labelMedium
+                )
+                if (people.isEmpty()) {
+                    Text(
+                        text = "No one else has signed in to FocusChat yet. Ask your friends to install the app and sign in with Google; they will appear here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    if (people.size > 5) {
+                        OutlinedTextField(
+                            value = personFilter,
+                            onValueChange = { personFilter = it },
+                            label = { Text("Search by name or email") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                    shownPeople.take(30).forEach { person ->
+                        val selected = if (isDirectMessage) selectedFriendId == person.id else person.id in selectedMembers
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    if (isDirectMessage) {
+                                        selectedFriendId = person.id
+                                    } else {
+                                        selectedMembers = if (selected) selectedMembers - person.id else selectedMembers + person.id
+                                    }
+                                }
+                                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            UserAvatar(user = person, size = 32, showOnlineDot = false)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(person.name, fontWeight = FontWeight.SemiBold)
+                                Text(person.statusMessage, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (!isDirectMessage) {
+                                Checkbox(checked = selected, onCheckedChange = null)
+                            }
+                        }
+                    }
                 }
 
                 OutlinedTextField(
@@ -592,14 +639,14 @@ fun CreateChannelDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val finalName = if (isDirectMessage) {
-                        friends.find { it.id == selectedFriendId }?.name ?: "Chat"
-                    } else name.ifBlank { "new-topic" }
-                    val finalTopic = topic.ifBlank { "General Technical Discussion" }
+                    val friend = people.find { it.id == selectedFriendId }
+                    val finalName = if (isDirectMessage) friend?.name ?: "Chat" else name.ifBlank { "new-topic" }
                     val kw = keywordsStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    onCreate(finalName, finalTopic, kw, selectedGuardLevel, isDirectMessage, selectedFriendId)
+                    val members = if (isDirectMessage) listOf(selectedFriendId) else selectedMembers.toList()
+                    onCreate(finalName, topic.trim(), kw, selectedGuardLevel, isDirectMessage, members)
                 },
-                enabled = if (isDirectMessage) topic.isNotBlank() else (name.isNotBlank() && topic.isNotBlank())
+                enabled = if (isDirectMessage) topic.isNotBlank() && selectedFriendId.isNotEmpty()
+                else name.isNotBlank() && topic.isNotBlank()
             ) {
                 Text("Create")
             }

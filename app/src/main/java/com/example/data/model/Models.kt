@@ -52,7 +52,9 @@ data class FileAttachment(
     val topicRelevanceScore: Int, // 0 - 100
     val keyTakeaways: List<String> = emptyList(),
     val securityNotes: String = "No known vulnerabilities found",
-    val previewSnippet: String? = null
+    val previewSnippet: String? = null,
+    val storedFileId: String? = null, // id under channels/{channelId}/files when the file itself was uploaded
+    val mimeType: String? = null
 )
 
 data class Message(
@@ -66,7 +68,9 @@ data class Message(
     val fileAttachment: FileAttachment? = null,
     val isFromMe: Boolean = false,
     val isFiltered: Boolean = false,
-    val filterReason: String? = null
+    val filterReason: String? = null,
+    val callUrl: String? = null,
+    val isVideoCall: Boolean = true
 )
 
 data class Channel(
@@ -90,29 +94,4 @@ data class ContentFilterConfig(
     val strictRelevanceGate: Boolean = false,
     val blockedKeywords: List<String> = listOf("crypto pump", "free nitro", "phishing", "malware"),
     val minRelevanceScore: Int = 60
-)
-
-data class AgendaPoint(
-    val id: String,
-    val text: String,
-    val isCovered: Boolean = false,
-    val timeSpentSeconds: Int = 0
-)
-
-data class CallState(
-    val isInCall: Boolean = false,
-    val channelId: String = "",
-    val channelName: String = "",
-    val isVideo: Boolean = true,
-    val participants: List<User> = emptyList(),
-    val isMuted: Boolean = false,
-    val isVideoEnabled: Boolean = true,
-    val isSpeakerOn: Boolean = true,
-    val isFrontCamera: Boolean = true,
-    val durationSeconds: Int = 0,
-    val topicName: String = "",
-    val liveDriftAlert: String? = null,
-    val liveComplianceScore: Int = 95,
-    val agendaPoints: List<AgendaPoint> = emptyList(),
-    val inCallMinutesSummary: String? = null
 )

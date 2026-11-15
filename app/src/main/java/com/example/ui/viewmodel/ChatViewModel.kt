@@ -2,7 +2,6 @@ package com.example.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.model.CallState
 import com.example.data.model.Channel
 import com.example.data.model.ContentFilterConfig
 import com.example.data.model.DriftStatus
@@ -38,9 +37,13 @@ class ChatViewModel(private val db: FirebaseFirestore) : ViewModel() {
     val channels: StateFlow<List<Channel>> = repository.channels
     val activeChannelId: StateFlow<String> = repository.activeChannelId
     val filterConfig: StateFlow<ContentFilterConfig> = repository.filterConfig
-    val callState: StateFlow<CallState> = repository.callState
     val currentUserState: StateFlow<User> = repository.currentUserState
-    val friendsList: List<User> = repository.friendsList
+    // Everyone else who has signed in: the people you can DM or add to a channel
+    val people: StateFlow<List<User>> = repository.people
+    val notice: StateFlow<String?> = repository.notice
+    val isUploading: StateFlow<Boolean> = repository.isUploading
+
+    fun clearNotice() = repository.clearNotice()
 
     fun refreshUserSession() {
         repository.syncUserProfile()
@@ -207,45 +210,15 @@ class ChatViewModel(private val db: FirebaseFirestore) : ViewModel() {
         showLinkScannerSheet.value = false
     }
 
-    fun uploadSampleFile(type: String) {
+    /** Upload a file the user picked (read by the screen from its content Uri). */
+    fun uploadFile(fileName: String, mimeType: String?, bytes: ByteArray) {
         val channel = activeChannel.value ?: return
         showAttachmentSheet.value = false
-
-        when (type) {
-            "kotlin_code" -> {
-                val code = """
-                    package com.example.performance
-                    // Optimizes memory allocation for high throughput state streams
-                    class StateBuffer(private val capacity: Int = 1024) {
-                        private val queue = java.util.ArrayDeque<ByteArray>(capacity)
-                        fun push(data: ByteArray) {
-                            if (queue.size >= capacity) queue.poll()
-                            queue.offer(data)
-                        }
-                    }
-                """.trimIndent()
-                repository.uploadAndAnalyzeFile(channel.id, "StateBuffer.kt", "code", code)
-            }
-            "tech_spec" -> {
-                val spec = """
-                    # Architecture Specification v2.4
-                    Target SLA: 99.99% availability with edge AI inference under 150ms.
-                    Protocols: TLS 1.3, Encrypted gRPC over HTTP/2, Mutual Authentication.
-                    Security: Static bytecode verification, zero-trust token signing.
-                """.trimIndent()
-                repository.uploadAndAnalyzeFile(channel.id, "Architecture_v2.4_Spec.md", "doc", spec)
-            }
-            "image_mockup" -> {
-                val imageNote = """
-                    [IMAGE ATTACHMENT: UI Wireframe]
-                    Resolution: 1080x2400
-                    Components: Real-time topic badge indicator, floating call banner, audio waveform visualizer.
-                    Target Contrast: APCA Bronze standard.
-                """.trimIndent()
-                repository.uploadAndAnalyzeFile(channel.id, "TopicChat_Wireframe_v3.png", "image", imageNote)
-            }
-        }
+        repository.uploadFile(channel.id, fileName, mimeType, bytes)
     }
+
+    suspend fun downloadFile(channelId: String, fileId: String): ByteArray? =
+        repository.downloadFile(channelId, fileId)
 
     fun createNewChannel(
         name: String,
@@ -253,35 +226,20 @@ class ChatViewModel(private val db: FirebaseFirestore) : ViewModel() {
         keywords: List<String>,
         guardLevel: GuardLevel,
         isDm: Boolean,
-        friendId: String?
+        memberIds: List<String>
     ) {
-        repository.createChannel(name, topic, keywords, guardLevel, isDm, friendId)
+        repository.createChannel(name, topic, keywords, guardLevel, isDm, memberIds)
         showCreateChannelDialog.value = false
+        _isInsideChat.value = true
     }
 
     fun updateFilters(config: ContentFilterConfig) {
         repository.updateFilterConfig(config)
     }
 
-    // Call Actions
-    fun startVoiceCall() {
-        val channel = activeChannel.value ?: return
-        repository.startCall(channel.id, isVideo = false)
+    // Calls: a real Jitsi Meet room; returns the link for the screen to open
+    fun startCall(isVideo: Boolean): String? {
+        val channel = activeChannel.value ?: return null
+        return repository.startCall(channel.id, isVideo)
     }
-
-    fun startVideoCall() {
-        val channel = activeChannel.value ?: return
-        repository.startCall(channel.id, isVideo = true)
-    }
-
-    fun endCall() {
-        repository.endCall()
-    }
-
-    fun toggleMute() = repository.toggleMute()
-    fun toggleVideo() = repository.toggleVideo()
-    fun toggleCameraFacing() = repository.toggleCameraFacing()
-    fun toggleSpeaker() = repository.toggleSpeaker()
-    fun markAgendaItem(id: String) = repository.markAgendaItem(id)
-    fun generateMeetingSummary() = repository.generateMeetingSummary()
 }
