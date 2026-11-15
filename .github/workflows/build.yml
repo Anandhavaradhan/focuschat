@@ -12,6 +12,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # ci/debug.keystore is a throwaway DEBUG key, committed on purpose so every CI build
+      # has the same SHA-1 (registered in Firebase for Google sign-in). Never use it for a
+      # release or Play Store build: release signing reads KEYSTORE_PATH, STORE_PASSWORD and
+      # KEY_PASSWORD (see app/build.gradle.kts), and that key stays out of the repo.
       - name: Use fixed debug key
         run: |
           mkdir -p ~/.android

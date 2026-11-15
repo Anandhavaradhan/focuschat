@@ -16,3 +16,10 @@
 local.properties
 .env
 debug.keystore
+
+# Signing keys never go in the repo. The one exception is ci/debug.keystore:
+# a throwaway debug key kept so every CI debug APK has the same SHA-1 for Firebase.
+*.jks
+*.keystore
+*.p12
+!ci/debug.keystore
