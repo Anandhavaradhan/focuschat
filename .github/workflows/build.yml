@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+permissions:
+  contents: write   # to publish the APK as a release
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -36,3 +38,18 @@ jobs:
         with:
           name: focuschat-apk
           path: app/build/outputs/apk/debug/*.apk
+      # The newest APK is always at:
+      #   https://github.com/<owner>/focuschat/releases/download/focuschat-latest/FocusChat.apk
+      # (the repo is private, so you must be signed in to GitHub to download it)
+      - name: Publish the APK as a release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/*.apk FocusChat.apk
+          gh release delete focuschat-latest --repo "${{ github.repository }}" --cleanup-tag --yes || true
+          sleep 5
+          gh release create focuschat-latest FocusChat.apk \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "FocusChat (build ${{ github.run_number }})" \
+            --notes "Download FocusChat.apk, open it on the phone and allow installing from this source."
