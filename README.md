@@ -31,6 +31,9 @@ View your app in AI Studio: https://ai.studio/apps/1e6f5955-a7ec-47f2-8c3e-7a25c
 - **Calls**: the call buttons start a real call in a new [Jitsi Meet](https://meet.jit.si) room and post a **Join** button to the chat.
   The call opens in the Jitsi Meet app if installed, otherwise in the browser. On meet.jit.si, the first person in the room may be asked to sign in to start the meeting.
 
+Moving the app to a different Firebase project, or setting one up from scratch:
+see **[FIREBASE-SETUP.md](FIREBASE-SETUP.md)**.
+
 ### Deploy the rules
 
 ```bash
