@@ -64,7 +64,7 @@ every read fails:
 
 ```bash
 npx firebase-tools login
-npx firebase-tools deploy --only firestore:rules --project focus-apps-topicpulse-67
+npx firebase-tools deploy --only firestore:rules --project focus-apps-topicpulse-67e
 ```
 
 ## 4. Check it works
