@@ -66,8 +66,9 @@ every read fails:
 
 ```bash
 npx firebase-tools login
-npx firebase-tools deploy --only firestore:rules --project <new-project-id>
+npx firebase-tools deploy --only firestore:rules --project focus-apps
 ```
+(use whatever project ID the console actually assigned, e.g. `focus-apps` or `focus-apps-xxxxx`)
 
 ## 4. Check it works
 
