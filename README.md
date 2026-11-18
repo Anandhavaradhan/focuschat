@@ -52,6 +52,6 @@ about, put the Gemini calls behind a server, as Gatekeeper does.
 ### Deploy the rules
 
 ```bash
-npx firebase-tools deploy --only firestore:rules --project gen-lang-client-0973407933
+npx firebase-tools deploy --only firestore:rules --project focus-apps-topicpulse-67e
 ```
-(the database id is `ai-studio-android-focuscha-1e6f5955-a7ec-47f2-8c3e-7a25c555cacd`, set in `res/values/firebase_applet_config.xml`).
+(the database id is `(default)`, set in `res/values/firebase_applet_config.xml`).
