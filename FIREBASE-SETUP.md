@@ -3,19 +3,17 @@
 TopicPulse signs people in with Google and keeps channels, messages and attachments in Firestore.
 This is everything the app needs from a Firebase project, and what to do when moving it to a new one.
 
-TopicPulse and [Gatekeeper](https://github.com/Anandhavaradhan/Gatekeeper-Universal-Chat) are meant to
-share one project, each with its own Firestore database, so their collections never collide.
+TopicPulse has its own Firebase project (free Spark plan), separate from
+[Gatekeeper](https://github.com/Anandhavaradhan/Gatekeeper-Universal-Chat)'s. A named, non-default Firestore
+database needs the paid Blaze plan, so two free projects is simpler than one project with two databases.
 
 ## 1. In the Firebase console
 
 **Create the project**, then:
 
 ### Firestore
-Create the first database (the console calls it `(default)`) in a region close to you, in **production mode**.
-Then add a second database with the ID **`topicpulse`** — that is the one this app uses.
-
-> If the console will not let you add a second database, use two separate Firebase projects instead,
-> one per app, and give each the `(default)` database.
+Create the database (the console calls it `(default)`) in a region close to you, in **production mode**.
+That is the one this app uses.
 
 ### Authentication
 **Sign-in method → Google → Enable.** Pick a support email. Nothing else is needed for this app.
@@ -54,7 +52,7 @@ Replace two things:
 | File | What changes |
 |---|---|
 | `app/google-services.json` | The whole file, as downloaded |
-| `app/src/main/res/values/firebase_applet_config.xml` | `firestore_database_id` → `topicpulse` |
+| `app/src/main/res/values/firebase_applet_config.xml` | `firestore_database_id` → `(default)` |
 | `firebase.json` | the `database` name, so rules deploy to the right place |
 
 The app reads the database id from that string resource (`ChatViewModel.Factory`), so nothing else is hard-coded.
@@ -66,7 +64,7 @@ every read fails:
 
 ```bash
 npx firebase-tools login
-npx firebase-tools deploy --only firestore:rules --project focus-apps-8967
+npx firebase-tools deploy --only firestore:rules --project <topicpulse-project-id>
 ```
 
 ## 4. Check it works
