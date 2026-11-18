@@ -34,6 +34,21 @@ View your app in AI Studio: https://ai.studio/apps/1e6f5955-a7ec-47f2-8c3e-7a25c
 Moving the app to a different Firebase project, or setting one up from scratch:
 see **[FIREBASE-SETUP.md](FIREBASE-SETUP.md)**.
 
+### Checking the Gemini key
+
+TopicPulse calls `gemini-3.5-flash` directly from the app. The key comes from the `GEMINI_API_KEY`
+repository secret, which CI writes into `.env` and the build bakes into the APK. To check that key and
+model before building, run the checker in the Gatekeeper repo, which tests the same model:
+
+```bash
+GEMINI_API_KEY=<your key> npm run check:gemini
+```
+
+Without a working key the app still runs: topic checks fall back to local heuristics.
+
+Note that a key baked into an APK can be read out of the APK by anyone who has it. For a key you care
+about, put the Gemini calls behind a server, as Gatekeeper does.
+
 ### Deploy the rules
 
 ```bash
